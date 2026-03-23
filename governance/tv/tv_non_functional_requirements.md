@@ -122,6 +122,36 @@ private suspend fun getShowableState(): QueueDisplayState? {
 
 ---
 
+## 4.3 Pairing Latency (New)
+
+**Pairing es un requerimiento previo obligatorio.**
+
+| Operación | Máximo Permitido | Meta de Diseño |
+|-----------|------------------|-------------------|
+| **Generar device_id + pairing code** | 1s | <500ms |
+| **Mostrar pairing screen** | 1s | <500ms |
+| **Poll backend: "¿código canjeado?" (primera vez)** | 2s | <1s |
+| **Redimir código en dashboard** | 5s | <2s |
+| **Fetch binding details después de redux** | 5s | <2s |
+| **Transicionar a paired + mostrar queue display** | 2s | <1s |
+| **Total pairing cycle (generation → paired ready)** | **15 minutos** | **<2 minutos** |
+
+**Pairing Success Rate:**
+- Meta: > 99.5% de códigos canjeados exitosamente.
+- Si < 95% tasa de éxito 7 dias, investigar (network, backend issues, UX friction).
+
+**Code Expiration:**
+- Pairing code expira en **15 minutos**.
+- Si cliente no canjea en 15 min: generar nuevo código automáticamente, mostrar en pantalla.
+- No aumentar tiempo de expiración (seguridad).
+
+**Polling Interval:**
+- TV poll backend cada **2 segundos** mientras está esperando pairing.
+- No más frecuente (innecesario, consume batería).
+- Not menos frecuente (experiencia lenta).
+
+---
+
 ## 5. Responsiveness & Reactivity
 
 ### 5.1 No Framedrops on Update

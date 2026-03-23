@@ -59,8 +59,13 @@ El módulo `app-tv` está organizado en **4 capas lógicas**:
 ```
 ui/
 ├── screens/
+│   ├── PairingScreen.kt           ← pantalla de emparejamiento (NUEVA)
 │   └── QueueDisplayScreen.kt      ← pantalla principal
 ├── components/
+│   ├── pairing/                   ← (NUEVA)
+│   │   ├── PairingCodeDisplay.kt
+│   │   ├── PairingErrorDisplay.kt
+│   │   └── PairingSuccessOverlay.kt
 │   ├── QueueDisplayHeader.kt
 │   ├── CurrentTicketCard.kt
 │   ├── NextTicketsSection.kt
@@ -73,7 +78,7 @@ ui/
 
 ### 2.2 Presentation Layer (ViewModel)
 
-**Responsabilidad:** Gestión de estado, transformaciones, y orquestación.
+**Responsabilidad:** Gestión de estado (pairing + queue display), transformaciones, y orquestación.
 
 **Permitido:**
 - ViewModels con StateFlow / LiveData.
@@ -93,103 +98,123 @@ ui/
 ```
 presentation/
 └── viewmodel/
-    └── QueueDisplayViewModel.kt   ← gestión de estado
+    ├── PairingViewModel.kt        ← (NUEVA)
+    └── QueueDisplayViewModel.kt
 ```
 
-**Ejemplo:**
+**PairingViewModel Sample:**
 ```kotlin
-class QueueDisplayViewModel(
-    private val queueRepository: QueueRepository,
-    private val connectionManager: ConnectionManager
+class PairingView Model(
+    private val pairingRepository: PairingRepository,
+    private val deviceStore: LocalDeviceStore
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow<QueueDisplayUiState>(QueueDisplayUiState.Loading)
-    val uiState: StateFlow<QueueDisplayUiState> = _uiState.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            queueRepository.queueStateFlow()
-                .catch { error -> _uiState.value = QueueDisplayUiState.Error(error) }
-                .collect { state -> _uiState.value = QueueDisplayUiState.Success(state) }
-        }
-    }
-
-    // Transformación de datos (lógica de presentación, no de negocio)
-    private fun transformQueueState(state: QueueState): DisplayModel {
-        // ... mapear, filtrar, formatear para UI
+    private val _pairingState = MutableStateFlow<PairingState>(PairingState.Unpaired)
+    val pairingState: StateFlow<PairingState> = _pairingState.asStateFlow()
+    
+    fun initializePairingFlow() {
+        // Generar device_id si no existe
+        // Generar pairing code
+        // Mostrar PairingScreen
+        // Iniciar polling de backend
     }
 }
 ```
 
 ---
 
-### 2.3 Data Layer (Repository)
+### 2.3 Data Layer (Repository) — Pairing
 
-**Responsabilidad:** Agregación de fuentes de datos, caching, y transformaciones antes de ViewModel.
-
-**Permitido:**
-- Implementación de interfaces de Repository.
-- Lógica de caching (memoria, disco).
-- Coordinación entre múltiples fuentes (API local, realtime subscriptions).
-- Validación de datos recibidos.
-- Transformación de DTOs a Domain Models.
-
-**Prohibido:**
-- Lógica de negocio.
-- Acceso directo a UI.
-- ViewModels o Composables.
-- State global mutable.
+**Responsabilidad:** Agregación de pairing data sources, caching binding, validación.
 
 **Ubicación:** `app-tv/src/main/java/com/yotei/tv/data/`
 
 ```
 data/
 ├── repository/
-│   └── QueueRepository.kt         ← acceso a datos
+│   ├── PairingRepository.kt       ← (NUEVA)
+│   └── QueueRepository.kt
 ├── datasource/
-│   ├── RemoteQueueDataSource.kt   ← APIs y realtime
-│   └── LocalQueueDataSource.kt    ← persistencia local
+│   ├── pairing/                   ← (NUEVA)
+│   │   ├── RemotePairingDataSource.kt
+│   │   ├── LocalDeviceStore.kt
+│   │   └── LocalDisplayBindingStore.kt
+│   ├── RemoteQueueDataSource.kt
+│   └── LocalQueueDataSource.kt
 └── mapper/
-    └── QueueMapper.kt             ← transformación DTO → Domain
+    ├── DisplayBindingMapper.kt     ← (NUEVA)
+    └── QueueMapper.kt
 ```
 
-**Ejemplo:**
+**PairingRepository Sample:**
 ```kotlin
-class QueueRepository(
-    private val remoteDataSource: RemoteQueueDataSource,
-    private val localDataSource: LocalQueueDataSource
+class PairingRepository(
+    private val remotePairingDataSource: RemotePairingDataSource,
+    private val localBindingStore: LocalDisplayBindingStore,
+    private val deviceStore: LocalDeviceStore
 ) {
-    fun queueStateFlow(): Flow<QueueState> = flow {
-        // Obtener del backend, cachear, validar
-        val state = remoteDataSource.getQueueState()
-        if (state.isValid()) {  // Validación de datos
-            localDataSource.cacheQueueState(state)
-            emit(state)
+    suspend fun checkCodeRedeemed(deviceId: String, code: String): DisplayBinding? {
+        return try {
+            remotePairingDataSource.queryCodeStatus(deviceId, code)
+        } catch (e: Exception) {
+            null  // Non-blocking
         }
+    }
+    
+    suspend fun cacheDisplayBinding(binding: DisplayBinding) {
+        localBindingStore.saveBinding(binding)
+    }
+    
+    fun getDisplayBinding(): DisplayBinding? {
+        return localBindingStore.getBinding()?.takeIf { !isBindingExpired(it) }
     }
 }
 ```
 
 ---
 
-### 2.4 Remote Data Layer
-
-**Responsabilidad:** Comunicación con APIs y servicios backend.
-
-**Permitido:**
-- Clientes HTTP (Retrofit, OkHttp).
-- Supabase client (realtime, autenticación).
-- Manejo de errores de red.
-- Implementación de backoff y reintentos.
-
-**Prohibido:**
-- Lógica de presentación.
-- ViewModels o state management.
-- Transformación compleja (solo DTO).
+### 2.4 Remote Data Layer — Pairing Endpoints
 
 **Ubicación:** `core/network/` (módulo compartido)
 
+**Pairing API Endpoints Required:**
+
+```kotlin
+interface PairingApi {
+    // Query si pairing code fue canjeado
+    @GET("/api/v1/pairing/codes/{device_id}/{code}")
+    suspend fun checkCodeStatus(
+        @Path("device_id") deviceId: String,
+        @Path("code") code: String,
+        @Header("X-Device-Secret") deviceSecret: String
+    ): DisplayBindingDto?
+    
+    // Fetch current binding para device
+    @GET("/api/v1/devices/{device_id}/binding")
+    suspend fun getDeviceBinding(
+        @Path("device_id") deviceId: String,
+        @Header("X-Device-Secret") deviceSecret: String
+    ): DisplayBindingDto?
+}
 ```
-network/
+
+**Data Models (sharing):**
+```kotlin
+// core-model or core-network DTOs
+data class DisplayBindingDto(
+    val binding_id: String,
+    val device_id: String,
+    val display_id: String,
+    val barbershop_id: String,
+    val binding_status: String,  // "active", "revoked"
+    val display_config: JsonObject?
+)
+```
+
+---
+
+### 2.5 Queue Display Data Layer (Repository)
+
+**Responsabilidad:** Agregación de queue data source
 ├── api/
 │   └── QueueApi.kt               ← cliente HTTP
 ├── supabase/

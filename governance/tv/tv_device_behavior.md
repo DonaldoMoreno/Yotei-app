@@ -14,9 +14,94 @@ Define el comportamiento esperado en tiempo de ejecución: qué hace la app al i
 
 ## 2. Startup Expectations (Expectativas de Inicio)
 
-### 2.1 Cold Start Behavior
+### 2.0 Pairing Startup Flow (Prerequisito)
 
-Cuando la app inicia por primera vez:
+**Antes de mostrar cualquier contenido de queue display, la TV debe estar emparejada.**
+
+Startup sequence:
+
+1. **Second 0:** App está iniciando, mostrar splash screen.
+2. **Second 1:** Generar/recuperar `device_id` (si no existe).
+3. **Second 2:** Verificar si existe `display_binding` válido en cache local.
+   - ✅ Si existe y es válido (< 24h desde último refresh): ir a **2.1**.
+   - ❌ Si no existe o expiró: ir a **Pairing Mode**.
+
+**Pairing Mode (New):**
+
+```
+┌─────────────────────────────────────┐
+│                                     │
+│      Introduce este código           │
+│            en tu dashboard:          │
+│                                     │
+│              123456                 │
+│                                     │
+│        Esperando confirmación...    │
+│      (Válido por 15 minutos)        │
+│                                     │
+└─────────────────────────────────────┘
+```
+
+IV debe:
+- Generar código de 6 dígitos.
+- Mostrar código en pantalla (grande, centrado, fácil de leer).
+- Poll backend cada 2 segundos: "¿Ha este código sido canjeado?"
+- Si sí: fetch binding details, ir a **2.1**.
+- Si código expira (15 min): generar nuevo código, mantener mostrando.
+- Si hay error de red: mostrar disclaimer, continuar pooling.
+
+```kotlin
+// En ViewModel
+fun initializePairingFlow() {
+    val deviceId = generateOrLoadDeviceId()
+    val pairingCode = generateSixDigitCode()
+    
+    _pairingState.value = PairingState.WaitingForPairing(
+        deviceId = deviceId,
+        pairingCode = pairingCode,
+        codeExpiresAt = System.currentTimeMillis() + (15 * 60 * 1000)
+    )
+    
+    // Polling loop
+    viewModelScope.launch {
+        while (pairingState.value is PairingState.WaitingForPairing) {
+            try {
+                val binding = pairingRepository.checkCodeRedeemed(deviceId, pairingCode)
+                if (binding != null && isBindingValid(binding)) {
+                    cachDisplayBinding(binding)
+                    _pairingState.value = PairingState.Paired(...)
+                    // Now proceed to queue display (section 2.1)
+                    initializeQueueDisplay()
+                    return@launch
+                }
+            } catch (e: Exception) {
+                // Log pero no crash, continuar polling
+            }
+            
+            // Check code expiration
+            val currentState = pairingState.value as? PairingState.WaitingForPairing
+            if (currentState != null && System.currentTimeMillis() > currentState.codeExpiresAt) {
+                // Generar nuevo código
+                val newCode = generateSixDigitCode()
+                _pairingState.value = currentState.copy(
+                    pairingCode = newCode,
+                    codeExpiresAt = System.currentTimeMillis() + (15 * 60 * 1000)
+                )
+            }
+            
+            delay(2000)  // Poll every 2 seconds
+        }
+    }
+}
+```
+
+**Important:** El código se mantiene en memoria, **nunca guarda en disco**.
+
+---
+
+### 2.1 Cold Start Behavior (After Pairing)
+
+Cuando la app inicia por primera vez **después de estar emparejada**:
 
 1. **Loading State:** Mostrar "Cargando..." durante 1-3 segundos.
 2. **Solicitar state del backend:** Realizar llamada HTTP GET al endpoint de estado de cola.
@@ -73,24 +158,73 @@ override fun onCreate(savedInstanceState: Bundle?) {
 }
 ```
 
-### 2.3 Configuration Retrieval (Barbershop ID)
+### 2.3 Display Configuration After Pairing
 
-La app debe recibir `barbershopId` por Intent extra o parámetro de navegación:
+Después de emparejamiento exitoso, la TV recupera configuración de display desde el binding:
 
 ```kotlin
-val barbershopId = intent.getStringExtra("barbershop_id") ?: "default_barbershop"
-// Pasar a ViewModel
-viewModel.initialize(barbershopId)
+// display_binding.json (cacheado localmente)
+{
+  "device_id": "uuid",
+  "display_id": "uuid",
+  "barbershop_id": "uuid",
+  "display_config": {
+    "display_name": "Waiting Room",
+    "refresh_rate_seconds": 5,
+    "theme": "dark",
+    "language": "es"
+  }
+}
+
+// En ViewModel
+fun loadDisplayConfiguration() {
+    val binding = loadDisplayBinding() ?: return
+    // Usar display_config para UI theming, language, etc.
+    applyDisplayConfig(binding.displayConfig)
+}
 ```
 
-**Si no se proporciona barbershopId:**
-- Usar un ID por defecto (ej. "demo_barbershop").
-- Loguear warning.
-- No fallar.
+**Regla:** La configuración de display (`display_config`) es un **snapshot en tiempo de binding**. Cambios posteriores en backend requieren **refresh de binding** (cada 24h automáticamente, o manual si se solicita).
 
 ---
 
 ## 3. Reconnection Behavior (Comportamiento de Reconexión)
+
+### 3.0 Binding Refresh & Validation
+
+**Regla:** La TV debe refrescar su binding cada **24 horas** para validar que sigue siendo válido.
+
+```kotlin
+// En ViewModel
+private fun scheduleBindingRefresh() {
+    val lastRefreshTime = loadLastBindingRefreshTime()
+    val ageHours = (System.currentTimeMillis() - lastRefreshTime) / (60 * 60 * 1000)
+    
+    if (ageHours > 24) {
+        viewModelScope.launch {
+            try {
+                val binding = pairingRepository.fetchBinding(deviceId)
+                if (binding != null && isBindingValid(binding)) {
+                    cachDisplayBinding(binding)
+                    saveLastBindingRefreshTime(System.currentTimeMillis())
+                } else {
+                    // Binding revoked or invalid
+                    _pairingState.value = PairingState.Unpaired
+                    clearDisplayBinding()
+                }
+            } catch (e: Exception) {
+                // Network error, continuar sin refrescar (mantener binding viejo)
+                // Será reintentado en próximo poll
+            }
+        }
+    }
+}
+```
+
+Si binding es revocado (por staff en dashboard):
+- TV detecta en próximo refresh: binding status = "revoked".
+- Limpia binding local, transiciona a `PairingState.Unpaired`.
+- Muestra pairing screen nuevamente.
 
 ### 3.1 Network Loss Detection
 

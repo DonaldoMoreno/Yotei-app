@@ -92,15 +92,65 @@ enum class BarbershopStatus {
 
 ---
 
-## 5. Null Handling (Manejo de Nulls)
+## 5. PairingState (Pairing Contract)
 
-### 5.1 Regla de Oro
+El estado de emparejamiento es **previo y prerrequisito** para renderizar contenido de display (QueueDisplayState).
+
+```kotlin
+sealed class PairingState {
+    object Unpaired : PairingState()
+    
+    data class WaitingForPairing(
+        val deviceId: String,                 // ← REQUERIDO: UUID del device
+        val pairingCode: String,              // ← REQUERIDO: 6 dígitos actuales
+        val codeExpiresAt: Long               // ← REQUERIDO: timestamp de expiración
+    ) : PairingState()
+    
+    data class Paired(
+        val deviceId: String,                 // ← REQUERIDO: UUID del device
+        val displayId: String,                // ← REQUERIDO: UUID del display vinculado
+        val barbershopId: String,             // ← REQUERIDO: UUID de barbería
+        val displayConfig: JsonObject?,       // ← NULLABLE: configuración del display (snapshot)
+        val bindingValidUntil: Long           // ← REQUERIDO: cuándo refrescar binding (24h)
+    ) : PairingState()
+    
+    data class PairingError(
+        val reason: PairingErrorReason,      // ← REQUERIDO: tipo de error
+        val message: String,                 // ← REQUERIDO: descripción legible
+        val retryCount: Int,                 // ← REQUERIDO: intentos realizados
+        val lastAttemptTime: Long            // ← REQUERIDO: timestamp del último intento
+    ) : PairingState()
+}
+
+enum class PairingErrorReason {
+    CODE_EXPIRED,               // Código expiró antes de ser canjeado
+    CODE_INVALID,               // Código no válido (no existe o ya fue canjeado)
+    DEVICE_NOT_FOUND,           // Device no encontrado en backend después de code redeem
+    BINDING_CREATION_FAILED,    // Fallo al crear binding en backend
+    BINDING_FETCH_FAILED,       // Fallo al obtener binding después de pairing
+    NETWORK_ERROR,              // Error de conexión sin especificar
+    UNKNOWN                     // Error desconocido
+}
+```
+
+**Reglas de contrato de pairing:**
+- ✅ Solo **una** de las ramas (`Unpaired`, `WaitingForPairing`, `Paired`, `PairingError`) es activa a la vez.
+- ✅ El código de pairing (6 dígitos) se genera **en memoria**, nunca persiste en disco.
+- ✅ El `displayId` y `displayConfig` se almacenan en disco **solo cuando** en estado `Paired`.
+- ✅ `retryCount` en `PairingError` tiene máximo 3 — después saltar a error permanente.
+- ✅ `displayConfig` es un snapshot — cambios posteriores en backend requieren refresh.
+
+---
+
+## 6. Null Handling (Manejo de Nulls)
+
+### 6.1 Regla de Oro
 
 **"Nunca inventar estado faltante. Nunca asumir valores por defecto."**
 
 Si el backend **no envía** un valor, la UI **debe fallar explícitamente o usar un placeholder visual** — nunca asumir un valor.
 
-### 5.2 Null Handling Policy
+### 6.2 Null Handling Policy
 
 | Campo | Nullable | Si es null | Acción UI |
 |-------|----------|-----------|-----------|
@@ -112,7 +162,7 @@ Si el backend **no envía** un valor, la UI **debe fallar explícitamente o usar
 | `queuePosition` | ✅ SÍ | Cliente no en fila | Mostrar "Fuera de fila" |
 | `checkedInAt` | ✅ SÍ | Cliente no ha hecho check-in | Mostrar estado sin timestamp |
 
-### 5.3 Code Examples
+### 6.3 Code Examples
 
 ```kotlin
 // ✅ CORRECTO: Manejar null explícitamente
@@ -143,9 +193,9 @@ Text(
 
 ---
 
-## 6. Rendering Guarantee (Garantías de Renderizado)
+## 7. Rendering Guarantee (Garantías de Renderizado)
 
-### 6.1 "Same State, Same UI"
+### 7.1 "Same State, Same UI"
 
 **Invariante:** Para el mismo `QueueDisplayState`, la UI siempre produce el mismo resultado visual (determinístico).
 
@@ -160,7 +210,7 @@ val ui2 = renderUI(state2)
 // ui1 == ui2 (mismo tree, misma layout)
 ```
 
-### 6.2 Immutable State in UI
+### 7.2 Immutable State in UI
 
 El `QueueDisplayState` pasado a Composables es **immutable**. La UI nunca lo modifica.
 
@@ -178,7 +228,7 @@ fun QueueScreen(state: QueueDisplayState) {
 }
 ```
 
-### 6.3 No Derived State in Composables
+### 7.3 No Derived State in Composables
 
 La UI **nunca calcula o deriva estado de negocio**.
 
@@ -197,7 +247,7 @@ fun TicketCard(ticket: QueueTicket) {
 
 ---
 
-## 7. State Contract Rules (Reglas de Contrato)
+## 8. State Contract Rules (Reglas de Contrato)
 
 ### Regla 1: Backend Owns Truth
 
@@ -281,7 +331,7 @@ fun QueueDisplayScreen(state: QueueDisplayState) {
 
 ---
 
-## 8. State Validation (Validación de Estado)
+## 9. State Validation (Validación de Estado)
 
 Antes de renderizar, el ViewModel debe validar que el state es consistente:
 
@@ -309,7 +359,7 @@ private fun onStateReceived(state: QueueDisplayState) {
 
 ---
 
-## 9. Backward Compatibility
+## 10. Backward Compatibility
 
 **Regla:** Si el backend agrega nuevos campos a `QueueDisplayState`:
 - Si son opcionales (nullable): UI funciona sin cambios.
@@ -330,12 +380,50 @@ val statusLabel = when (ticket.status) {
 
 ---
 
-## 10. Enforcement
+## 11. Pairing State Validation
+
+El ViewModel **debe validar** que existe un binding válido antes de pasar a estado `Paired`:
+
+```kotlin
+// ✅ CORRECTO: Validar binding
+private fun isBindingValid(binding: DisplayBinding): Boolean {
+    return binding.deviceId.isNotBlank() &&
+           binding.displayId.isNotBlank() &&
+           binding.barbershopId.isNotBlank() &&
+           binding.bindingStatus == "active"
+}
+
+// En ViewModel
+fun onPairingCodeRedeemed(binding: DisplayBinding) {
+    if (isBindingValid(binding)) {
+        cachDisplayBinding(binding)
+        _pairingState.value = PairingState.Paired(
+            deviceId = binding.deviceId,
+            displayId = binding.displayId,
+            barbershopId = binding.barbershopId,
+            displayConfig = binding.displayConfig,
+            bindingValidUntil = System.currentTimeMillis() + (24 * 60 * 60 * 1000)
+        )
+    } else {
+        _pairingState.value = PairingState.PairingError(
+            reason = PairingErrorReason.BINDING_CREATION_FAILED,
+            message = "Binding inválido recibido",
+            retryCount = 0,
+            lastAttemptTime = System.currentTimeMillis()
+        )
+    }
+}
+```
+
+---
+
+## 12. Enforcement
 
 - **Code Review:** Verificar que Composables no fabrican estado.
 - **Tests:** Escribir tests parametrizados (null vs non-null fields).
 - **Lint:** Custom lint rule para detectar default values no permitidos.
 - **Integration Tests:** Probar con states incompletos o corruptos.
+- **Pairing Tests:** Validar transiciones de pairing y validación de binding.
 
 ---
 

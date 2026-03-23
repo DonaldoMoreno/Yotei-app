@@ -20,7 +20,8 @@ import com.yotei.tv.ui.components.*
 @Composable
 fun QueueDisplayScreen(
     state: QueueState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRefreshBinding: (() -> Unit)? = null
 ) {
     Box(
         modifier = modifier

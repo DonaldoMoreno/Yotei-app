@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.yotei.tv.app-tv-mergeDebugResources-44:/values-v21/values-v21.xml",
+            "outputFile": "com.yotei.tv.app-tv-mergeDebugResources-45:/values-v21/values-v21.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\Donal\\.gradle\\caches\\transforms-3\\e9196b7cab79aebc1fb1d644c700b6fa\\transformed\\core-1.13.1\\res\\values-v21\\values-v21.xml",
+                    "source": "C:\\Users\\Donal\\.gradle\\caches\\transforms-3\\5d51b5c2e94e735ba744c4348fb03a7d\\transformed\\core-1.13.1\\res\\values-v21\\values-v21.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,13",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4",

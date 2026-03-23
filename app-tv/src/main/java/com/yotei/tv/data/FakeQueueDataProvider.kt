@@ -31,8 +31,42 @@ object FakeQueueDataProvider {
         return QueueState(
             barbershop = createFakeBarbershop(),
             currentTicket = createFakeCurrentTicket(),
-            nextTickets = emptyList(),
-            totalInQueue = 1,
+            nextTickets = listOf(
+                QueueTicket(
+                    id = "ticket-002",
+                    ticketNumber = 43,
+                    status = QueueStatus.WAITING,
+                    customerName = "Juan Rivera",
+                    serviceName = "Corte Clásico",
+                    serviceMinutes = 20,
+                    queuePosition = 2,
+                    estimatedWaitMinutes = 20,
+                    checkedInAt = "2024-03-22T14:25:00Z"
+                ),
+                QueueTicket(
+                    id = "ticket-003",
+                    ticketNumber = 44,
+                    status = QueueStatus.WAITING,
+                    customerName = "Miguel López",
+                    serviceName = "Corte Fade",
+                    serviceMinutes = 25,
+                    queuePosition = 3,
+                    estimatedWaitMinutes = 45,
+                    checkedInAt = "2024-03-22T14:20:00Z"
+                ),
+                QueueTicket(
+                    id = "ticket-004",
+                    ticketNumber = 45,
+                    status = QueueStatus.WAITING,
+                    customerName = "Roberto García",
+                    serviceName = "Afeitado",
+                    serviceMinutes = 15,
+                    queuePosition = 4,
+                    estimatedWaitMinutes = 65,
+                    checkedInAt = "2024-03-22T14:15:00Z"
+                )
+            ),
+            totalInQueue = 4,
             averageServiceMinutes = 21,
             isLoading = false,
             errorMessage = null

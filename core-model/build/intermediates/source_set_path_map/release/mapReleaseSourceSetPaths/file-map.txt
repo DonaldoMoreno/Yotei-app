@@ -1,7 +1,0 @@
-com.yotei.coremodel.core-model-pngs-0 C:\Users\Donal\Documents\Yottei\Yotei_app\core-model\build\generated\res\pngs\release
-com.yotei.coremodel.core-model-resValues-1 C:\Users\Donal\Documents\Yottei\Yotei_app\core-model\build\generated\res\resValues\release
-com.yotei.coremodel.core-model-mergeReleaseResources-2 C:\Users\Donal\Documents\Yottei\Yotei_app\core-model\build\intermediates\incremental\release\mergeReleaseResources\merged.dir
-com.yotei.coremodel.core-model-mergeReleaseResources-3 C:\Users\Donal\Documents\Yottei\Yotei_app\core-model\build\intermediates\incremental\release\mergeReleaseResources\stripped.dir
-com.yotei.coremodel.core-model-release-4 C:\Users\Donal\Documents\Yottei\Yotei_app\core-model\build\intermediates\merged_res\release\mergeReleaseResources
-com.yotei.coremodel.core-model-main-5 C:\Users\Donal\Documents\Yottei\Yotei_app\core-model\src\main\res
-com.yotei.coremodel.core-model-release-6 C:\Users\Donal\Documents\Yottei\Yotei_app\core-model\src\release\res

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<incidents format="6" by="lint 8.3.1" type="configured_issues">
-    <config id="ImpliedTouchscreenHardware" severity="ignore"/>
-    <config id="MissingTvBanner" severity="ignore"/>
-    <config id="MissingLeanbackLauncher" severity="ignore"/>
-
-</incidents>

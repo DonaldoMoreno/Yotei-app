@@ -1,15 +1,88 @@
+# Android Studio / IntelliJ
 *.iml
-.gradle
+.idea/
+.gradle/
 /local.properties
-/.idea/caches
-/.idea/libraries
+/.idea/caches/
+/.idea/libraries/
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+/.idea/**/gradle.xml
+/.idea/**/navEditor.xml
+/.idea/**/misc.xml
+
+# Build artifacts
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.ap_
+*.dex
+*.class
+*.jar
+*.aar
+/out/
+
+# Local configuration
 local.properties
+
+# OS files
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE-specific
+.vscode/
+*.swp
+*.swo
+*~
+.classpath
+.project
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Gradle wrapper (keep the jar, not the properties)
+!gradle/wrapper/gradle-wrapper.jar
+
+# Node modules (if applicable)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Security/Keys
+*.jks
+*.keystore
+*.p12
+*.pfx
+debug.keystore
+
+# Kotlin
+*.kt.bak
+
+# Test coverage
+/coverage/
+.coverage
+
+# Temporary files
+*.tmp
+*.temp
+/temp/
+
+# Build output
+/dist/
+/release/
+
+# Misc
+*.orig
+*.patch
+.merge_file_*
+.git/

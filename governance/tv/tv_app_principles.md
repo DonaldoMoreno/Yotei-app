@@ -181,6 +181,54 @@ fun TicketCard(ticket: QueueTicket, isHighlighted: Boolean) {
 
 ---
 
+### Principio 8: Required Pairing Before Display Content
+
+**Regla:**
+- La TV **nunca debe mostrar contenido de display de producción** sin estar vinculada a un display a través del modelo de pairing.
+- El pairing es un **prerequisito**, no un feature opcional.
+- Si no existe binding válido, la TV entra en `waiting_for_pairing` state.
+- El código de pairing es **temporal y de un solo uso**, nunca una credencial de larga duración.
+
+**Implicación:**
+- Startup: verificar `display_binding` válido antes de renderizar `QueueDisplayScreen`.
+- Si binding no existe: mostrar `PairingScreen` con código de 6 dígitos.
+- Si binding es revocado: transicionar de vuelta a `PairingScreen`.
+- El pairing model es **global** (gobernanza en `governance/system/display_pairing_model.md`).
+
+**Ejemplo de violación:**
+```kotlin
+// ❌ VIOLACIÓN: Mostrar display content sin verificar binding
+@Composable
+fun MainActivity() {
+    setContent {
+        QueueDisplayScreen()  // ← Sin validar pairing
+    }
+}
+```
+
+**Ejemplo correcto:**
+```kotlin
+// ✅ CORRECTO: Verificar binding antes de renderizar display
+@Composable
+fun MainActivity() {
+    val pairingState = viewModel.pairingState.collectAsState()
+    setContent {
+        when (pairingState.value) {
+            PairingState.PAIRED -> QueueDisplayScreen()
+            PairingState.WAITING_FOR_PAIRING -> PairingScreen()
+            PairingState.ERROR -> PairingErrorScreen()
+        }
+    }
+}
+```
+
+**Security Note:**
+- Nunca loguear el pairing code.
+- Nunca almacenar el pairing code en disco (solo en memoria durante pairing flow).
+- Almacenar `device_secret` (token de autenticación) en `EncryptedSharedPreferences`.
+
+---
+
 ## 3. Consecuencias de Violar Estos Principios
 
 - **Violación 1-2 (Lógica, Estado)**: Aplicación no escalable; incompatible con cambios de backend.
@@ -189,6 +237,7 @@ fun TicketCard(ticket: QueueTicket, isHighlighted: Boolean) {
 - **Violación 5 (Pasividad)**: Fricción del usuario, requiere intervención, no se puede dejar sola.
 - **Violación 6 (Resiliencia)**: Necesita restart manual, estado stale, experiencia pobre.
 - **Violación 7 (Separación)**: Código no testeable, acoplamiento fuerte backend-frontend, vulnerabilidades.
+- **Violación 8 (Pairing)**: Seguridad comprometida, contenido expuesto a device no autorizado, violación de confianza de staff.
 
 ---
 

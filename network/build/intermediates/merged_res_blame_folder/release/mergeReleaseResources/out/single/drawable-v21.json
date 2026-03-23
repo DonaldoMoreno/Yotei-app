@@ -1,6 +1,0 @@
-[
-    {
-        "merged": "com.yotei.network-release-10:/drawable-v21/notification_action_background.xml",
-        "source": "com.yotei.network-core-1.13.1-4:/drawable-v21/notification_action_background.xml"
-    }
-]

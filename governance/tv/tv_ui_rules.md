@@ -352,16 +352,113 @@ Modifier
 
 ---
 
-## 8. Specific Component Rules
+## 8. Pairing Screen UI Rules (New)
 
-### 8.1 QueueDisplayHeader
+La pantalla de emparejamiento es **el primer screen que ve el usuario** si no hay binding válido.
+
+### 8.1 Pairing Code Display
+
+**Prioridad visual máxima: mostrar el código grande y claro.**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│                                                         │
+│           Introduce este código en tu                   │
+│                 aplicación web:                        │
+│                                                         │
+│                     123456                             │
+│                                                         │
+│         (Válido por 15 minutos)                         │
+│        Esperando confirmación del staff...             │
+│                                                         │
+│                    🔄 Cargando...                       │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Reglas:**
+- **Código:** 72sp Bold monospace (números solo, sin separadores).
+- **Label "Introduce este código...":** 28sp Regular, centrado.
+- **Línea de expiración:** 18sp Regular, centrado, color amarillo (#EAB308).
+- **Status spinner:** Mostrar animación sutil de cargando (sin distracciones).
+- **Fondo:** Mismo tema oscuro que queue display (#10101A).
+- **Contraste:** Blanco sobre negro (>20:1, excelente).
+- **Espaciado:** Abundante (mínimo 32dp desde bordes).
+
+**No mostrar:**
+- ❌ QR code en esta pantalla (solo numeric code).
+- ❌ Instrucciones detalladas ("Ir a settings, luego...").
+- ❌ Botones de "Reintentar ahora" (auto-retry detrás de escenas).
+
+### 8.2 Pairing Error Screen
+
+Si hay error (ej. código expiró, network issue):
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│                    ⚠️ ERROR                             │
+│                                                         │
+│              El código expiró.                         │
+│                                                         │
+│        Se está generando un código nuevo...            │
+│           (Espera aproximadamente 30 segundos)         │
+│                                                         │
+│                                                         │
+│                   🔄 Reintentando...                   │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Reglas:**
+- **Error icon:** Emoji ⚠️ (28sp).
+- **Error title:** 32sp Bold.
+- **Error message:** 24sp Regular, centrado.
+- **Retry status:** 18sp Regular, gris claro (#A0A0A0).
+- **Color:** Rojo (#EF4444) para error icon solo, resto blanco.
+- **No cerrada:** Error screen es persistent, muestra retry automático.
+
+### 8.3 Pairing Success Screen (Transición)
+
+Cuando código se canjea exitosamente:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│                   ✓ ¡Listo!                             │
+│                                                         │
+│        Tu pantalla ha sido emparejada                  │
+│                                                         │
+│                  Barbería: "Le Barbershop"             │
+│              Pantalla: Waiting Room                     │
+│                                                         │
+│              Cargando contenido en 3...                │
+│                                                         │
+│                   🔄 Iniciando...                       │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Reglas:**
+- **Success icon:** Emoji ✓ (28sp, verde #10B981).
+- **Title:** 32sp Bold, verde (#10B981).
+- **Binding details:** 20sp Regular, blanco.
+- **Countdown:** 16sp, gris (#A0A0A0), fade out gradualmente.
+- **Duration:** Mostrar por 2-3 segundos luego transicionar automáticamente a display content.
+
+---
+
+## 9. Specific Component Rules (Queue Display)
+
+### 9.1 QueueDisplayHeader
 
 - Shop name: 32sp Bold.
 - Address: 20sp Regular.
 - Clock: 48sp Bold (monospace).
 - Spacing: mínimo 16dp entre elementos.
 
-### 8.2 CurrentTicketCard
+### 9.2 CurrentTicketCard
 
 - Ticket number: **72sp Bold monospace** (máximo enfoque).
 - Customer name: 36sp Medium.
@@ -369,7 +466,7 @@ Modifier
 - Status badge: 24sp Bold + ice color (teal/green).
 - Padding: 24dp interior.
 
-### 8.3 NextTicketsSection
+### 9.3 NextTicketsSection
 
 - Grid de 3 columnas (máximo visible en pantalla 55").
 - Card mínimo 120sp altura ( readable).
@@ -377,7 +474,7 @@ Modifier
 - Name: 18sp.
 - Spacing: 16dp entre cards.
 
-### 8.4 QueueStatsPanel
+### 9.4 QueueStatsPanel
 
 - Máximo 4 stats (total queue, ETA, shop status, uptime).
 - Números grandes (32sp+).
@@ -386,12 +483,13 @@ Modifier
 
 ---
 
-## 9. Enforcement
+## 10. Enforcement
 
 - **Preview:** Testear layouts en emulator con screen size ≥ 1280×720 (@2x density).
 - **Design Review:** Verificar tipografía, contraste, y espacios en PRs de UI.
 - **A11y Testing:** Usar Android Accessibility Scanner en emulator.
 - **Real Device Test:** Probar en TV real si es posible (o emulator with display config).
+- **Pairing UX:** Verificar que pairing screen sea intuitiva y readable desde distancia (validar con real TV).
 
 ---
 
