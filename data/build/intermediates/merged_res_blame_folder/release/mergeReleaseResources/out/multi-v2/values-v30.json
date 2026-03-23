@@ -1,0 +1,34 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.yotei.data-mergeReleaseResources-41:/values-v30/values-v30.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\Donal\\.gradle\\caches\\transforms-3\\8fdcba30e7bbc6699b4658b64c75d8e6\\transformed\\material3-release\\res\\values-v30\\values-v30.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "72",
+                        "endOffsets": "123"
+                    }
+                }
+            ]
+        },
+        {
+            "outputFile": "com.yotei.data-release-43:/values-v30/values-v30.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\Donal\\.gradle\\caches\\transforms-3\\8fdcba30e7bbc6699b4658b64c75d8e6\\transformed\\material3-release\\res\\values-v30\\values-v30.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "72",
+                        "endOffsets": "123"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,14 @@
+com.yotei.network-annotation-experimental-1.4.0-0 C:\Users\Donal\.gradle\caches\transforms-3\03ae9d081eeeb00c86c32bf60c470bfe\transformed\annotation-experimental-1.4.0\res
+com.yotei.network-lifecycle-runtime-2.6.2-1 C:\Users\Donal\.gradle\caches\transforms-3\58f52e590fc632a17704182cebc08a3e\transformed\lifecycle-runtime-2.6.2\res
+com.yotei.network-core-ktx-1.13.1-2 C:\Users\Donal\.gradle\caches\transforms-3\b67fb4a260de9b3f2a0c4b5db3dcd322\transformed\core-ktx-1.13.1\res
+com.yotei.network-profileinstaller-1.3.0-3 C:\Users\Donal\.gradle\caches\transforms-3\c1ed16cdffe8427bbe23a078fae20a36\transformed\profileinstaller-1.3.0\res
+com.yotei.network-core-1.13.1-4 C:\Users\Donal\.gradle\caches\transforms-3\e9196b7cab79aebc1fb1d644c700b6fa\transformed\core-1.13.1\res
+com.yotei.network-startup-runtime-1.1.1-5 C:\Users\Donal\.gradle\caches\transforms-3\ed549570d89b2097a224ef82162278aa\transformed\startup-runtime-1.1.1\res
+com.yotei.network-core-runtime-2.2.0-6 C:\Users\Donal\.gradle\caches\transforms-3\f942b2a490d43b369830e17b01d63f29\transformed\core-runtime-2.2.0\res
+com.yotei.network-pngs-7 C:\Users\Donal\Documents\Yottei\Yotei_app\network\build\generated\res\pngs\release
+com.yotei.network-resValues-8 C:\Users\Donal\Documents\Yottei\Yotei_app\network\build\generated\res\resValues\release
+com.yotei.network-mergeReleaseResources-9 C:\Users\Donal\Documents\Yottei\Yotei_app\network\build\intermediates\incremental\release\mergeReleaseResources\merged.dir
+com.yotei.network-mergeReleaseResources-10 C:\Users\Donal\Documents\Yottei\Yotei_app\network\build\intermediates\incremental\release\mergeReleaseResources\stripped.dir
+com.yotei.network-release-11 C:\Users\Donal\Documents\Yottei\Yotei_app\network\build\intermediates\merged_res\release\mergeReleaseResources
+com.yotei.network-main-12 C:\Users\Donal\Documents\Yottei\Yotei_app\network\src\main\res
+com.yotei.network-release-13 C:\Users\Donal\Documents\Yottei\Yotei_app\network\src\release\res
