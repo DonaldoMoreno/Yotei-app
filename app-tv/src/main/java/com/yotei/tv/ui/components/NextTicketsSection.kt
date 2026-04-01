@@ -45,10 +45,13 @@ fun NextTicketsSection(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(tickets.size) { index ->
+            items(
+                items = tickets,
+                key = { ticket -> ticket.id }  // ✅ Stable key for proper recomposition
+            ) { ticket ->
                 NextTicketCard(
-                    ticket = tickets[index],
-                    position = index + 1
+                    ticket = ticket,
+                    position = tickets.indexOf(ticket) + 1
                 )
             }
         }

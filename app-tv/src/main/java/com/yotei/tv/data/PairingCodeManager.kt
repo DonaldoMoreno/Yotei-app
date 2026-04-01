@@ -6,6 +6,7 @@ import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import kotlinx.coroutines.delay
 
 /**
  * Pairing Code Management for TV App
@@ -16,6 +17,13 @@ import io.ktor.http.*
 data class GeneratePairingCodeRequest(
     val device_id: String,
     val device_secret: String
+)
+
+@Serializable
+data class RegisterDeviceProvisionalRequest(
+    val device_id: String,
+    val device_name: String,
+    val device_model: String
 )
 
 @Serializable
@@ -45,8 +53,49 @@ class PairingCodeManager(
     private val TAG = "PairingCodeManager"
     
     /**
+     * NEW Option 3: Register device as PROVISIONAL without barbershop_id
+     * Called on first pairing attempt BEFORE generating pairing code
+     */
+    suspend fun registerDeviceProvisional(
+        deviceId: String,
+        deviceName: String,
+        deviceModel: String
+    ): Result<Unit> {
+        return try {
+            val url = "$apiBaseUrl/api/devices/register-provisional"
+            android.util.Log.d(TAG, "Registering device as provisional to: $url")
+            android.util.Log.d(TAG, "deviceId: $deviceId, deviceName: $deviceName, deviceModel: $deviceModel")
+            
+            val response = httpClient.post(url) {
+                contentType(ContentType.Application.Json)
+                setBody(RegisterDeviceProvisionalRequest(
+                    device_id = deviceId,
+                    device_name = deviceName,
+                    device_model = deviceModel
+                ))
+            }
+            
+            android.util.Log.d(TAG, "Response received: ${response.status}")
+
+            if (response.status == HttpStatusCode.Created || response.status == HttpStatusCode.OK) {
+                android.util.Log.d(TAG, "✓ Device registered as PROVISIONAL successfully")
+                Result.success(Unit)
+            } else {
+                val errorMsg = "Failed to register device: ${response.status} (HTTP ${response.status.value})"
+                android.util.Log.e(TAG, errorMsg)
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Exception during device registration: ${e.message}", e)
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+    
+    /**
      * Generate a new pairing code for this device
      * Called once when device first launches or needs new code
+     * PREREQUISITE: Device must be registered via registerDeviceProvisional() first
      */
     suspend fun generatePairingCode(
         deviceId: String,
@@ -139,6 +188,69 @@ class PairingCodeManager(
             }
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Exception during status polling: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Poll code status repeatedly until redeemed or expired
+     * Loops every 2 seconds with max attempts
+     */
+    suspend fun pollCodeStatus(
+        code: String,
+        deviceId: String,
+        maxAttempts: Int = 450
+    ): Result<GetPairingCodeStatusResponse> {
+        var attempt = 0
+        while (attempt < maxAttempts) {
+            attempt++
+            try {
+                val url = "$apiBaseUrl/api/pairing-codes/$code/status"
+                val response = httpClient.get(url) {
+                    parameter("device_id", deviceId)
+                }
+                
+                if (response.status == HttpStatusCode.OK || response.status == HttpStatusCode.Accepted) {
+                    val body = response.body<GetPairingCodeStatusResponse>()
+                    return Result.success(body)
+                } else if (response.status == HttpStatusCode.Gone) {
+                    return Result.failure(Exception("Code expired"))
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Poll error (attempt $attempt): ${e.message}")
+            }
+            delay(2000)
+        }
+        return Result.failure(Exception("Max poll attempts exceeded"))
+    }
+
+    /**
+     * Fetch binding details after code has been redeemed
+     * Called after code_status changes to "used"
+     */
+    suspend fun getBindingAfterCodeRedeem(
+        code: String,
+        deviceId: String
+    ): Result<PairingApiClient.GetBindingResponse> {
+        return try {
+            val url = "$apiBaseUrl/api/pairing-codes/$code/binding"
+            android.util.Log.d(TAG, "Fetching binding for redeemed code: $code")
+            
+            val response = httpClient.get(url) {
+                parameter("device_id", deviceId)
+            }
+            
+            if (response.status == HttpStatusCode.OK) {
+                val body = response.body<PairingApiClient.GetBindingResponse>()
+                android.util.Log.d(TAG, "✓ Binding received: ${body.binding_id}")
+                Result.success(body)
+            } else {
+                val errorMsg = "Failed to get binding: ${response.status} (HTTP ${response.status.value})"
+                android.util.Log.e(TAG, errorMsg)
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Exception fetching binding: ${e.message}", e)
             Result.failure(e)
         }
     }

@@ -36,6 +36,9 @@ class DeviceIdentityManager(context: Context) {
         private const val KEY_BARBERSHOP_ID = "barbershop_id"
         private const val KEY_FIRST_LAUNCH = "first_launch"
         private const val KEY_FIRST_PAIRING_AT = "first_pairing_at"
+        private const val KEY_BINDING_ID = "binding_id"
+        private const val KEY_DISPLAY_ID = "display_id"
+        private const val KEY_HAS_VALID_BINDING = "has_valid_binding"
     }
 
     /**
@@ -140,6 +143,48 @@ class DeviceIdentityManager(context: Context) {
      */
     fun setFirstPairingAt(timestamp: String) {
         prefs.edit().putString(KEY_FIRST_PAIRING_AT, timestamp).apply()
+    }
+
+    /**
+     * Store binding information after successful pairing.
+     * Called after code redemption with binding details from backend.
+     */
+    fun storeBinding(
+        bindingId: String,
+        displayId: String,
+        deviceSecret: String
+    ) {
+        prefs.edit().apply {
+            putString(KEY_BINDING_ID, bindingId)
+            putString(KEY_DISPLAY_ID, displayId)
+            putString(KEY_DEVICE_SECRET, deviceSecret)
+            putBoolean(KEY_HAS_VALID_BINDING, true)
+            apply()
+        }
+    }
+
+    /**
+     * Get stored binding ID.
+     * Returns null if no binding or binding invalid.
+     */
+    fun getBindingId(): String? {
+        return prefs.getString(KEY_BINDING_ID, null)
+    }
+
+    /**
+     * Get stored display ID.
+     * Returns null if no binding or binding invalid.
+     */
+    fun getDisplayId(): String? {
+        return prefs.getString(KEY_DISPLAY_ID, null)
+    }
+
+    /**
+     * Check if device has a valid binding.
+     * Used to determine if device should show queue display.
+     */
+    fun hasValidBinding(): Boolean {
+        return prefs.getBoolean(KEY_HAS_VALID_BINDING, false)
     }
 
     /**

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 
 @Composable
 fun QueueDisplayHeader(
@@ -23,11 +26,21 @@ fun QueueDisplayHeader(
     shopAddress: String,
     modifier: Modifier = Modifier
 ) {
-    val now = remember { LocalDateTime.now() }
+    // ✅ FIXED: Use mutableStateOf to allow updates
+    val now = remember { mutableStateOf(LocalDateTime.now()) }
+    
+    // ✅ NEW: Update clock every second
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)  // Wait 1 second
+            now.value = LocalDateTime.now()  // Update the time
+        }
+    }
+    
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d MMM", java.util.Locale("es", "MX"))
-    val formattedTime = now.format(timeFormatter)
-    val formattedDate = now.format(dateFormatter)
+    val formattedTime = now.value.format(timeFormatter)
+    val formattedDate = now.value.format(dateFormatter)
 
     Row(
         modifier = modifier

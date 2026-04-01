@@ -42,7 +42,6 @@ fun PairingScreen(
     onError: (String) -> Unit
 ) {
     val TAG = "PairingScreen"
-    val coroutineScope = rememberCoroutineScope()
     
     // State management
     var pairingCode by remember { mutableStateOf<String?>(null) }
@@ -50,52 +49,126 @@ fun PairingScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var timeoutSeconds by remember { mutableStateOf(900) } // 15 minutes
     var isGenerating by remember { mutableStateOf(true) }
+    var codeRedeemed by remember { mutableStateOf<PairingApiClient.GetBindingResponse?>(null) }
+    var codeThatWasUsed by remember { mutableStateOf<String?>(null) }
+    
+    // Store the callback in remember so it doesn't change reference
+    val onPairingCompleteCallback = remember { onPairingComplete }
 
-    // Step 1: Generate pairing code from backend on first load
-    LaunchedEffect(Unit) {
-        coroutineScope.launch {
+    // ✅ OPTIMAL FIX: Delay navigation to allow polling LaunchedEffect to exit cleanly
+    // When codeRedeemed is set, wait ONE composition cycle before navigating
+    // This gives the polling LaunchedEffect time to exit its while(isPolling) loop
+    LaunchedEffect(codeRedeemed) {
+        if (codeRedeemed != null) {
+            android.util.Log.d(TAG, "=== [Navigation Effect] TRIGGERED ===")
+            android.util.Log.d(TAG, "codeRedeemed != null: binding_id=${codeRedeemed!!.binding_id}")
+            
+            // Wait for current frame to finish (gives polling loop chance to exit)
+            delay(50)  // Small delay to let polling LaunchedEffect clean up from while loop
+            android.util.Log.d(TAG, "✓ [Navigation] Polling has exited, safe to navigate")
+            android.util.Log.d(TAG, "✓ [Navigation] Calling onPairingCompleteCallback...")
+            
             try {
-                android.util.Log.d(TAG, "=== PAIRING SCREEN INIT ===")
-                android.util.Log.d(TAG, "deviceId: $deviceId")
-                android.util.Log.d(TAG, "deviceSecret: ${deviceSecret?.take(4)}...")
-                android.util.Log.d(TAG, "Starting code generation...")
-                
-                // Use a default device secret if one hasn't been provided yet
-                // (On first pairing, the device doesn't have a secret yet from backend)
-                val secretToUse = if (deviceSecret.isNullOrBlank()) {
-                    // Use device-id as temporary secret for initial pairing code request
-                    deviceId.take(16)
-                } else {
-                    deviceSecret
-                }
-                android.util.Log.d(TAG, "Using secret: ${secretToUse.take(4)}...")
-                
-                val result = pairingCodeManager.generatePairingCode(
-                    deviceId = deviceId,
-                    deviceSecret = secretToUse
-                )
-                
-                result.onSuccess { response ->
-                    android.util.Log.d(TAG, "✓ generatePairingCode SUCCESS: ${response.code}")
-                    pairingCode = response.code
-                    timeoutSeconds = response.ttl_seconds
-                    isGenerating = false
-                }
-                
-                result.onFailure { exception ->
-                    android.util.Log.e(TAG, "✗ generatePairingCode FAILED: ${exception.message}")
-                    exception.printStackTrace()
-                    errorMessage = "Error generando código: ${exception.message}"
-                    isGenerating = false
-                    isPolling = false
-                }
+                onPairingCompleteCallback(codeRedeemed!!)
+                android.util.Log.d(TAG, "✓ [Navigation] onPairingCompleteCallback COMPLETED")
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "✗ [Navigation] onPairingCompleteCallback THREW EXCEPTION: ${e.message}")
+                e.printStackTrace()
+                errorMessage = "Error en navegación: ${e.message}"
+            }
+        }
+    }
+    
+    // Separate effect: When code is used, fetch binding
+    // This runs independently from polling to avoid nesting too deep
+    LaunchedEffect(codeThatWasUsed) {
+        if (codeThatWasUsed != null) {
+            android.util.Log.d(TAG, "=== [BindingFetch Effect] TRIGGERED ===")
+            android.util.Log.d(TAG, "[BindingFetch] Code was redeemed: $codeThatWasUsed, fetching binding...")
+            val bindingResult = pairingCodeManager.getBindingAfterCodeRedeem(
+                code = codeThatWasUsed!!,
+                deviceId = deviceId
+            )
+            
+            bindingResult.onSuccess { binding ->
+                android.util.Log.d(TAG, "✓ [BindingFetch] Binding received: ${binding.binding_id}")
+                android.util.Log.d(TAG, "✓ [BindingFetch] Setting codeRedeemed state...")
+                codeRedeemed = binding
+                android.util.Log.d(TAG, "✓ [BindingFetch] codeRedeemed state UPDATED (this will trigger Navigation Effect)")
+            }
+            
+            bindingResult.onFailure { error ->
+                android.util.Log.e(TAG, "✗ [BindingFetch] Failed: ${error.message}")
+                errorMessage = "Error obteniendo vinculación: ${error.message}"
+            }
+        }
+    }
+
+    // Step 1: Register device as provisional, then generate pairing code
+    LaunchedEffect(Unit) {
+        // ✅ NO NEED for rememberCoroutineScope - LaunchedEffect provides its own scope
+        try {
+            android.util.Log.d(TAG, "=== PAIRING SCREEN INIT ===")
+            android.util.Log.d(TAG, "deviceId: $deviceId")
+            android.util.Log.d(TAG, "deviceSecret: ${deviceSecret?.take(4)}...")
+            
+            // Step 1a: Register device as provisional (NEW Option 3)
+            android.util.Log.d(TAG, "Step 1a: Registering device as PROVISIONAL...")
+            val deviceName = "TV"
+            val deviceModel = "Unknown"
+            
+            val regResult = pairingCodeManager.registerDeviceProvisional(
+                deviceId = deviceId,
+                deviceName = deviceName,
+                deviceModel = deviceModel
+            )
+            
+            regResult.onFailure { exception ->
+                android.util.Log.e(TAG, "✗ Device registration FAILED: ${exception.message}")
+                errorMessage = "Error registrando dispositivo: ${exception.message}"
+                isGenerating = false
+                isPolling = false
+                return@LaunchedEffect
+            }
+            
+            android.util.Log.d(TAG, "✓ Device registered as PROVISIONAL")
+            
+            // Step 1b: Now generate pairing code
+            android.util.Log.d(TAG, "Step 1b: Generating pairing code...")
+            
+            // For provisional flow, generate a temporary secret locally
+            // Server will handle actual device_secret_hash after pairing
+            val secretToUse = deviceSecret ?: run {
+                // Use first 16 chars of device_id as temporary secret
+                deviceId.substring(0, minOf(16, deviceId.length))
+            }
+            android.util.Log.d(TAG, "Using secret: ${secretToUse.take(4)}...")
+            
+            val codeResult = pairingCodeManager.generatePairingCode(
+                deviceId = deviceId,
+                deviceSecret = secretToUse
+            )
+            
+            codeResult.onSuccess { response ->
+                android.util.Log.d(TAG, "✓ generatePairingCode SUCCESS: ${response.code}")
+                pairingCode = response.code
+                timeoutSeconds = response.ttl_seconds
+                isGenerating = false
+            }
+            
+            codeResult.onFailure { exception ->
+                android.util.Log.e(TAG, "✗ generatePairingCode FAILED: ${exception.message}")
+                exception.printStackTrace()
+                errorMessage = "Error generando código: ${exception.message}"
+                isGenerating = false
+                isPolling = false
+            }
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "✗ Unexpected exception: ${e.message}", e)
                 errorMessage = "Error: ${e.message}"
                 isGenerating = false
                 isPolling = false
             }
-        }
     }
 
     // Step 2: Count down timeout (decrements every second)
@@ -130,64 +203,52 @@ fun PairingScreen(
                 delay(2000) // Poll every 2 seconds
                 
                 // Call backend to check if staff has redeemed the code
-                val result = pairingCodeManager.getPairingCodeStatus(
+                val statusResult = pairingCodeManager.getPairingCodeStatus(
                     deviceId = deviceId,
                     code = pairingCode!!
                 )
                 
-                result.onSuccess { statusResponse ->
+                statusResult.onSuccess { statusResponse ->
                     when (statusResponse.code_status) {
-                        "used" -> {
-                            // ✅ CODE REDEEMED! Staff has entered the code
-                            isPolling = false
-                            
-                            android.util.Log.d(TAG, "=== CODE REDEEMED ===")
-                            android.util.Log.d(TAG, "statusResponse.binding: ${statusResponse.binding}")
-                            android.util.Log.d(TAG, "statusResponse.redeemed_by_display_id: ${statusResponse.redeemed_by_display_id}")
-                            
-                            // Use the complete binding from backend response
-                            val binding = if (statusResponse.binding != null) {
-                                android.util.Log.d(TAG, "✓ Using binding from backend")
-                                android.util.Log.d(TAG, "  binding_id: ${statusResponse.binding.binding_id}")
-                                android.util.Log.d(TAG, "  barbershop_id: ${statusResponse.binding.barbershop_id}")
-                                android.util.Log.d(TAG, "  device_id: ${statusResponse.binding.device_id}")
-                                statusResponse.binding
-                            } else {
-                                android.util.Log.e(TAG, "✗ Binding is NULL from backend! Creating fallback (THIS IS THE BUG)")
-                                android.util.Log.e(TAG, "  redeemed_by_display_id: ${statusResponse.redeemed_by_display_id}")
-                                // Fallback - but will have empty barbershop_id
-                                PairingApiClient.GetBindingResponse(
-                                    binding_id = statusResponse.redeemed_by_display_id ?: "",
-                                    device_id = deviceId,
-                                    display_id = statusResponse.redeemed_by_display_id ?: "",
-                                    barbershop_id = "", // ⚠️ EMPTY - TV app won't be able to fetch queue data!
-                                    binding_status = "active",
-                                    display_config = null,  // ✅ Changed from emptyMap()
-                                    device_secret = deviceSecret,
-                                    created_at = statusResponse.redeemed_at ?: ""
-                                )
-                            }
-                            
-                            onPairingComplete(binding)
-                        }
-                        
                         "pending" -> {
                             // Still waiting for staff to enter code
+                            android.util.Log.d(TAG, "Code still pending, TTL: ${statusResponse.ttl_seconds}s")
                             // Update countdown from response
                             if (statusResponse.ttl_seconds > 0) {
                                 timeoutSeconds = statusResponse.ttl_seconds
                             }
                         }
                         
+                        "used" -> {
+                            // ✅ CODE REDEEMED! Binding data may already be in response
+                            android.util.Log.d(TAG, "=== CODE REDEEMED (status=used) ===")
+                            
+                            // Optimization: If binding is already in the response, use it directly
+                            if (statusResponse.binding != null) {
+                                android.util.Log.d(TAG, "✅ Binding already in status response, using directly: ${statusResponse.binding!!.binding_id}")
+                                codeRedeemed = statusResponse.binding
+                                android.util.Log.d(TAG, "✓ codeRedeemed SET directly, skipping separate binding fetch")
+                                isPolling = false
+                            } else {
+                                // Fallback: Binding not in response, trigger separate fetch
+                                android.util.Log.d(TAG, "Binding NOT in status response, fetching separately...")
+                                android.util.Log.d(TAG, "Setting codeThatWasUsed = $pairingCode (this will trigger BindingFetch Effect)")
+                                codeThatWasUsed = pairingCode  // ← Trigger separate binding-fetch effect
+                                android.util.Log.d(TAG, "✓ codeThatWasUsed SET, exiting polling loop...")
+                                isPolling = false              // ← Exit this polling loop cleanly
+                            }
+                        }
+                        
                         "expired" -> {
                             // Code expired
+                            android.util.Log.d(TAG, "Code expired (status = expired)")
                             errorMessage = "Código expirado. Por favor, solicite uno nuevo."
                             isPolling = false
                         }
                     }
                 }
                 
-                result.onFailure { exception ->
+                statusResult.onFailure { exception ->
                     // Check if error is 410 (Gone) = Expired
                     if (exception.message?.contains("410") == true) {
                         errorMessage = "Código expirado. Por favor, solicite uno nuevo."

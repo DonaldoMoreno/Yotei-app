@@ -105,7 +105,48 @@ class PairingRepository(
     // ──────────────────────────────────────────────────────────────────────────────
 
     /**
-     * Register device with backend on first launch.
+     * Register device as PROVISIONAL on first launch.
+     * This is the NEW Option 3 flow:
+     * 1. Device registers as provisional (barbershop_id = NULL)
+     * 2. Device can now generate pairing code safely
+     * 3. After staff redeems code, device is updated to 'registered' with actual barbershop_id
+     *
+     * @param deviceId Device UUID
+     * @return Result with registration status
+     */
+    suspend fun registerDeviceProvisional(deviceId: String): Result<Unit> {
+        return try {
+            val deviceName = deviceManager.getDeviceName() ?: "TV"
+            val deviceModel = deviceManager.getDeviceModel() ?: "Unknown"
+
+            android.util.Log.d(TAG, "Registering device as PROVISIONAL...")
+            android.util.Log.d(TAG, "  deviceId: $deviceId")
+            android.util.Log.d(TAG, "  deviceName: $deviceName")
+            android.util.Log.d(TAG, "  deviceModel: $deviceModel")
+
+            val result = apiClient.registerDeviceProvisional(
+                deviceId = deviceId,
+                deviceName = deviceName,
+                deviceModel = deviceModel
+            )
+
+            result.onSuccess {
+                android.util.Log.d(TAG, "✓ Device registered as PROVISIONAL")
+            }
+            result.onFailure { e ->
+                android.util.Log.e(TAG, "✗ Failed to register device: ${e.message}")
+            }
+
+            result.map { Unit }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Exception in registerDeviceProvisional: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Register device with backend AFTER pairing succeeds.
+     * This is the OLD flow (still needed for backward compatibility).
      * Called after user selects their barbershop from a dropdown.
      *
      * @param deviceId Device UUID

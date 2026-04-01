@@ -18,8 +18,16 @@ import kotlinx.coroutines.launch
  * 3. REGISTERING - Register device with backend
  * 4. WAITING_PAIRING_CODE - Show code input screen (staff enters code)
  * 5. POLLING_BINDING - Poll for code redemption
- * 6. PAIRED - Show queue display
- * 7. ERROR - Show error message
+ * 6. PAIRED - Binding received, cached, ready to load display config
+ * 7. LOADING_DISPLAY_CONFIG - Loading queue data after pairing
+ * 8. DISPLAY_READY - Queue data loaded, showing display (implicit - triggers UI render)
+ * 9. ERROR - Show error message
+ *
+ * After pairing (PAIRED state):
+ * → TvQueueViewModel starts polling
+ * → If no data within 15 seconds → ERROR
+ * → If polling fails (auth, network) → ERROR
+ * → If polling succeeds → StateFlow updates, UI shows queue
  */
 class AppStateViewModel(
     private val pairingRepository: PairingRepository
@@ -32,6 +40,7 @@ class AppStateViewModel(
         WAITING_PAIRING_CODE,
         POLLING_BINDING,
         PAIRED,
+        LOADING_DISPLAY_CONFIG,
         ERROR
     }
 
@@ -58,6 +67,9 @@ class AppStateViewModel(
 
     private val _barbershopId = mutableStateOf<String?>(null)
     val barbershopId: State<String?> = _barbershopId
+
+    private val _displayId = mutableStateOf<String?>(null)
+    val displayId: State<String?> = _displayId
 
     private val _pollingProgress = mutableStateOf<String?>(null)
     val pollingProgress: State<String?> = _pollingProgress
@@ -108,9 +120,53 @@ class AppStateViewModel(
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
-    // DEVICE REGISTRATION
+    // DEVICE REGISTRATION (Option 3 Flow)
     // ──────────────────────────────────────────────────────────────────────────────
 
+    /**
+     * NEW Option 3 Flow:
+     * Register device as PROVISIONAL without barbershop_id.
+     * Called from PairingScreen when user presses "Generate Code" button.
+     *
+     * @return true if registration succeeded (device can now generate pairing code)
+     */
+    fun registerDeviceProvisional(): Boolean {
+        _errorMessage.value = null
+
+        return try {
+            val deviceId = _deviceId.value ?: throw Exception("Device ID not initialized")
+
+            // Launch coroutine to register asynchronously
+            viewModelScope.launch {
+                val result = pairingRepository.registerDeviceProvisional(deviceId)
+
+                result.onSuccess {
+                    android.util.Log.d("AppStateViewModel", "✓ Device registered as PROVISIONAL")
+                    // Success - device is ready to generate pairing code
+                    // (PairingScreen will proceed to generatePairingCode)
+                }
+
+                result.onFailure { error ->
+                    android.util.Log.e("AppStateViewModel", "✗ Failed to register device: ${error.message}")
+                    _errorMessage.value = "Failed to register device: ${error.message}"
+                    _appState.value = AppState.ERROR
+                }
+            }
+
+            true // Indicate that registration is in progress
+        } catch (e: Exception) {
+            _errorMessage.value = e.message ?: "Registration error"
+            android.util.Log.e("AppStateViewModel", "Exception: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * OLD Flow (deprecated - but kept for backward compatibility).
+     * Register device with barbershop_id after user selects from dropdown.
+     * 
+     * @param barbershopId Barbershop UUID from user selection
+     */
     fun registerDevice(barbershopId: String) {
         _appState.value = AppState.REGISTERING
         _errorMessage.value = null
@@ -147,29 +203,51 @@ class AppStateViewModel(
      * so we can transition directly to PAIRED state.
      */
     fun waitForPairingCodeRedemption(binding: PairingApiClient.GetBindingResponse? = null) {
-        android.util.Log.d("AppStateViewModel", "waitForPairingCodeRedemption called with binding: $binding")
+        android.util.Log.d("AppStateViewModel", "════════════════════════════════════════════════════════")
+        android.util.Log.d("AppStateViewModel", "waitForPairingCodeRedemption() called")
+        android.util.Log.d("AppStateViewModel", "  binding: $binding")
         
         if (binding != null) {
-            // Fast path: We already have the binding from PairingScreen
-            android.util.Log.d("AppStateViewModel", "✓ Using binding from PairingScreen")
-            android.util.Log.d("AppStateViewModel", "  barbershop_id: ${binding.barbershop_id}")
+            android.util.Log.d("AppStateViewModel", "✓ Fast path: Using binding from PairingScreen")
+            android.util.Log.d("AppStateViewModel", "  binding.barbershop_id: ${binding.barbershop_id}")
+            android.util.Log.d("AppStateViewModel", "  binding.device_secret: ${binding.device_secret.take(10)}...")
             
             viewModelScope.launch {
                 try {
+                    android.util.Log.d("AppStateViewModel", "→ Entering coroutine to cache binding")
+                    
                     // Cache binding and transition to queue display
                     pairingRepository.cacheBinding(binding)
+                    android.util.Log.d("AppStateViewModel", "✓ Binding cached")
+                    
                     _deviceSecret.value = binding.device_secret
+                    android.util.Log.d("AppStateViewModel", "✓ Device secret updated")
+                    
                     _barbershopId.value = binding.barbershop_id
-                    _appState.value = AppState.PAIRED
-                    android.util.Log.d("AppStateViewModel", "✓ PAIRED state set with barbershop_id: ${binding.barbershop_id}")
+                    android.util.Log.d("AppStateViewModel", "✓ Barbershop ID updated: ${binding.barbershop_id}")
+                    
+                    _displayId.value = binding.display_id
+                    android.util.Log.d("AppStateViewModel", "✓ Display ID updated: ${binding.display_id}")
+                    
+                    android.util.Log.d("AppStateViewModel", "→ Setting AppState to LOADING_DISPLAY_CONFIG...")
+                    transitionAppState(
+                        AppState.LOADING_DISPLAY_CONFIG,
+                        reason = "Pairing binding cached, starting display config load"
+                    )
+                    android.util.Log.d("AppStateViewModel", "✓✓✓ LOADING_DISPLAY_CONFIG state set successfully ✓✓✓")
+                    android.util.Log.d("AppStateViewModel", "  Current appState: ${_appState.value}")
+                    android.util.Log.d("AppStateViewModel", "  Current barbershopId: ${_barbershopId.value}")
+                    
                 } catch (e: Exception) {
-                    android.util.Log.e("AppStateViewModel", "✗ Error setting PAIRED state: ${e.message}", e)
+                    android.util.Log.e("AppStateViewModel", "✗✗ Error setting PAIRED state: ${e.message}", e)
                     _errorMessage.value = e.message ?: "Pairing error"
                     _appState.value = AppState.ERROR
                 }
+                
+                android.util.Log.d("AppStateViewModel", "════════════════════════════════════════════════════════")
             }
         } else {
-            // Slow path: No binding yet, poll for it (legacy path)
+            android.util.Log.d("AppStateViewModel", "→ Slow path: Polling for binding (legacy)")
             _appState.value = AppState.POLLING_BINDING
             _errorMessage.value = null
             _pollingProgress.value = "Waiting for staff to enter code..."
@@ -250,6 +328,27 @@ class AppStateViewModel(
     fun resetDevice() {
         pairingRepository.resetDevice()
         initializeApp()
+    }
+
+    /**
+     * Centralized state transition helper with automatic logging.
+     * All AppState changes should go through this for consistency.
+     */
+    fun transitionAppState(newState: AppState, reason: String = "", errorMessage: String? = null) {
+        android.util.Log.d("AppStateViewModel", "──────────────────────────────────────────────────────────")
+        android.util.Log.d("AppStateViewModel", "STATE TRANSITION: ${_appState.value} → $newState")
+        if (reason.isNotEmpty()) {
+            android.util.Log.d("AppStateViewModel", "  Reason: $reason")
+        }
+        
+        _appState.value = newState
+        
+        if (errorMessage != null && errorMessage.isNotEmpty()) {
+            _errorMessage.value = errorMessage
+            android.util.Log.d("AppStateViewModel", "  Error: $errorMessage")
+        }
+        
+        android.util.Log.d("AppStateViewModel", "──────────────────────────────────────────────────────────")
     }
 }
 

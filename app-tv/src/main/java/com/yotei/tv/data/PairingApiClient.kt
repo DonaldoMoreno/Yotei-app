@@ -34,6 +34,13 @@ class PairingApiClient(
     )
 
     @Serializable
+    data class RegisterDeviceProvisionalRequest(
+        val device_id: String,
+        val device_name: String,
+        val device_model: String
+    )
+
+    @Serializable
     data class RegisterDeviceResponse(
         val device_id: String,
         val device_status: String,
@@ -74,7 +81,47 @@ class PairingApiClient(
     // ──────────────────────────────────────────────────────────────────────────────
 
     /**
-     * Register device on first launch.
+     * Register device as PROVISIONAL on first launch (Option 3 flow).
+     * NEW ENDPOINT: POST /api/devices/register-provisional
+     *
+     * Device is registered WITHOUT barbershop_id (registration_stage='provisional')
+     * Allows device to generate pairing code before staff selects barbershop.
+     *
+     * @return Device registration response, or error
+     */
+    suspend fun registerDeviceProvisional(
+        deviceId: String,
+        deviceName: String,
+        deviceModel: String
+    ): Result<RegisterDeviceResponse> {
+        return try {
+            val request = RegisterDeviceProvisionalRequest(
+                device_id = deviceId,
+                device_name = deviceName,
+                device_model = deviceModel
+            )
+
+            val response = makeRequest(
+                method = "POST",
+                path = "/api/devices/register-provisional",
+                body = json.encodeToString(request)
+            )
+
+            if (response.statusCode == 201 || response.statusCode == 200) {
+                val data = json.decodeFromString<RegisterDeviceResponse>(response.body)
+                Result.success(data)
+            } else {
+                val error = json.decodeFromString<ErrorResponse>(response.body)
+                Result.failure(Exception(error.error))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "registerDeviceProvisional failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Register device on first launch (OLD flow - still supported).
      * POST /api/devices
      *
      * @return Device registration response, or null on error
