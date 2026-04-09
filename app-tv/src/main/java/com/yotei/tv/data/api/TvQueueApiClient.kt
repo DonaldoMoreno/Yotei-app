@@ -53,6 +53,7 @@ class TvQueueApiClient(
     data class TicketEta(
         val ticket_id: String = "",
         val ticket_number: Int = 0,
+        val customer_name: String = "",
         val eta_minutes: Int = 0
     )
 

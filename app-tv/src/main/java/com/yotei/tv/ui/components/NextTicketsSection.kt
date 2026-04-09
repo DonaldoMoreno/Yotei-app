@@ -42,8 +42,8 @@ fun NextTicketsSection(
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(
                 items = tickets,
@@ -71,7 +71,7 @@ fun NextTicketCard(
                 shape = RoundedCornerShape(16.dp)
             )
             .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-            .padding(16.dp)
+            .padding(14.dp)
     ) {
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -138,16 +138,6 @@ fun NextTicketCard(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
-                ),
-                maxLines = 1
-            )
-
-            // Service name
-            Text(
-                text = ticket.serviceName,
-                style = TextStyle(
-                    fontSize = 13.sp,
-                    color = Color.White.copy(alpha = 0.5f)
                 ),
                 maxLines = 1
             )

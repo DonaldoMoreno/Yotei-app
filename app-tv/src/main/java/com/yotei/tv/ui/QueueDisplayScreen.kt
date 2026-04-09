@@ -82,7 +82,7 @@ private fun QueueDisplayScreenContent(
             )
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header with shop info
+            // Header with shop info and live clock
             QueueDisplayHeader(
                 shopName = displayState.barbershop.name,
                 shopAddress = displayState.barbershop.address
@@ -135,20 +135,24 @@ private fun QueueDisplayScreenContent(
                         modifier = Modifier
                             .weight(2f)
                             .fillMaxHeight(),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Current ticket
+                        // Current ticket - fixed size
                         if (displayState.currentTicket != null) {
                             CurrentTicketCard(
                                 ticket = displayState.currentTicket,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .wrapContentHeight()
                             )
                         }
 
-                        // Next tickets
+                        // Next tickets - expandable, takes remaining space
                         NextTicketsSection(
                             tickets = displayState.nextTickets,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
                         )
                     }
 
@@ -164,21 +168,7 @@ private fun QueueDisplayScreenContent(
                 }
             }
 
-            // Footer with update timestamp
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Powered by YOTTEI • Sistema de turnos inteligente",
-                    style = TextStyle(
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.3f)
-                    )
-                )
-            }
+            // Footer - removed to gain space for ETA display
         }
     }
 }
@@ -209,7 +199,7 @@ fun QueueDisplayScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Header with shop info and time
+            // Header with shop info and live clock
             QueueDisplayHeader(
                 shopName = state.barbershop.name,
                 shopAddress = state.barbershop.address

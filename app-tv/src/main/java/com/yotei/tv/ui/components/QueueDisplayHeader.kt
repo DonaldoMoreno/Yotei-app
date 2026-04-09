@@ -45,52 +45,29 @@ fun QueueDisplayHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(32.dp),
+            .padding(horizontal = 32.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Top
     ) {
-        // Logo and shop info
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // Shop info (without logo)
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Logo box
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        color = Color.White,
-                        shape = RoundedCornerShape(12.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Y",
-                    style = TextStyle(
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1C5A5E)
-                    )
+            Text(
+                text = shopName,
+                style = TextStyle(
+                    fontSize = 45.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
                 )
-            }
-
-            Column {
-                Text(
-                    text = shopName,
-                    style = TextStyle(
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+            )
+            Text(
+                text = shopAddress,
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.6f)
                 )
-                Text(
-                    text = shopAddress,
-                    style = TextStyle(
-                        fontSize = 16.sp,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                )
-            }
+            )
         }
 
         // Time display

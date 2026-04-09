@@ -27,13 +27,13 @@ fun CurrentTicketCard(
                 color = Color(0xFF1E293B).copy(alpha = 0.5f),
                 shape = RoundedCornerShape(24.dp)
             )
-            .padding(32.dp)
+            .padding(28.dp)
     ) {
         if (ticket != null) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(32.dp)
+                horizontalArrangement = Arrangement.spacedBy(28.dp)
             ) {
                 // Ticket number - large display
                 Box(
@@ -42,13 +42,13 @@ fun CurrentTicketCard(
                             color = Color(0xFF1C5A5E),
                             shape = RoundedCornerShape(16.dp)
                         )
-                        .padding(24.dp),
+                        .padding(22.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "#${String.format("%03d", ticket.ticketNumber)}",
                         style = TextStyle(
-                            fontSize = 72.sp,
+                            fontSize = 65.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -62,46 +62,14 @@ fun CurrentTicketCard(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Customer name
-                    Column {
-                        Text(
-                            text = "Cliente",
-                            style = TextStyle(
-                                fontSize = 14.sp,
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 1.5.sp
-                            )
+                    Text(
+                        text = ticket.customerName,
+                        style = TextStyle(
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
-                        Text(
-                            text = ticket.customerName,
-                            style = TextStyle(
-                                fontSize = 36.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        )
-                    }
-
-                    // Service name
-                    Column {
-                        Text(
-                            text = "Servicio",
-                            style = TextStyle(
-                                fontSize = 14.sp,
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 1.5.sp
-                            )
-                        )
-                        Text(
-                            text = ticket.serviceName,
-                            style = TextStyle(
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Normal,
-                                color = Color.White
-                            )
-                        )
-                    }
+                    )
 
                     // Status badge
                     val statusColor = getStatusColor(ticket.status, !ticket.checkedInAt.isNullOrEmpty())

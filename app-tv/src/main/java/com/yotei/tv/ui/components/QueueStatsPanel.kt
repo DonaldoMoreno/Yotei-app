@@ -72,39 +72,42 @@ fun QueueStatsPanel(
             }
         }
 
-        // Estimated wait time
-        if (totalInQueue > 0) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = Color.White.copy(alpha = 0.05f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(20.dp),
-                contentAlignment = Alignment.Center
+        // Estimated wait time - always show
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = Color.White.copy(alpha = 0.05f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .padding(12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Tiempo estimado",
-                        style = TextStyle(
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.6f)
-                        )
-                    )
-                    Text(
-                        text = "~$estimatedWaitMinutes min",
-                        style = TextStyle(
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    )
-                }
+                Text(
+                    text = "Tiempo estimado",
+                    style = TextStyle(
+                        fontSize = 11.sp,
+                        color = Color.White.copy(alpha = 0.6f)
+                    ),
+                    maxLines = 1
+                )
+                Text(
+                    text = if (estimatedWaitMinutes == 0) 
+                        "Sin clientes" 
+                    else 
+                        "~${estimatedWaitMinutes} min",
+                    style = TextStyle(
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF10B981)
+                    ),
+                    maxLines = 1
+                )
             }
         }
 
